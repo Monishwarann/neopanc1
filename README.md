@@ -1,4 +1,4 @@
-# HealthCare-Ai 🩺 volatile organic compound (VOC) & Salivary Biomarker Risk Screening System
+# HealthCare-Ai 🩺 Volatile Organic Compound (VOC) & Salivary Biomarker Risk Screening System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](backend/)
@@ -7,7 +7,7 @@
 [![AI Model](https://img.shields.io/badge/ML%20Model-Random%20Forest%20%2F%20XGBoost-success.svg)](backend/models/)
 [![Accuracy](https://img.shields.io/badge/Model%20Accuracy-84.17%25-brightgreen.svg)](docs/final_report.md)
 
-**HealthCare-Ai** (also known as *NeoPanc*) is an end-to-end, non-invasive, AI-driven IoT risk screening platform for early pancreatic cancer indicators. By fusing exhaled breath volatile organic compounds (VOCs) and salivary biomarkers (pH and electrical conductivity) with clinical survey parameters, the system computes a continuous **Pancreatic Cancer Risk Index (PCRI)** score (0–100) and provides actionable risk stratified clinical recommendations.
+**HealthCare-Ai** (also known as *NeoPanc*) is an end-to-end, non-invasive, AI-driven IoT risk screening platform for early pancreatic cancer indicators. By fusing exhaled breath volatile organic compounds (VOCs) and salivary biomarkers (pH and electrical conductivity) with clinical survey parameters, the system computes a continuous **Pancreatic Cancer Risk Index (PCRI)** score (0–100) and provides actionable risk-stratified clinical recommendations.
 
 ---
 
@@ -20,7 +20,7 @@ Pancreatic ductal adenocarcinoma (PDAC) has one of the lowest 5-year survival ra
 ### Key Biomarker Channels
 1. **Breath Volatile Organic Compounds (VOCs):** Exhaled breath metabolic markers including acetone, ethanol, acetaldehyde, and amine derivatives measured via gas sensors (`MQ135`, `MQ3`, `MQ7`).
 2. **Salivary Acidity (pH):** Physiological shifts induced by pancreatic insufficiency or localized inflammation.
-3. **Salivary Electrical Conductivity (EC):** Concentration of salivary inorganic ions and altered metabolic waste products measured in $\text{mS/cm}$.
+3. **Salivary Electrical Conductivity (EC):** Concentration of salivary inorganic ions and altered metabolic waste products measured in mS/cm.
 4. **Clinical Risk Parameters:** Patient age, BMI, smoking/alcohol habits, diabetes status, family history, weight loss, abdominal discomfort, appetite changes, and jaundice.
 
 ---
@@ -31,31 +31,31 @@ The project integrates IoT hardware telemetry, cloud REST API services, machine 
 
 ```mermaid
 graph TB
-    subgraph Hardware Layer (IoT Device)
-        Sensors[MQ135, MQ3, MQ7, Saliva pH, Saliva EC] -->|Analog Voltage Signals| ADC[ESP32 ADC1 Pins]
-        ADC -->|Quantized 12-bit Signal| Calibration[Firmware Calibration Equations]
-        Calibration -->|PPM, pH, mS/cm Values| ESP32Core[ESP32 Microcontroller]
-        ESP32Core -->|WiFi HTTP POST| HTTPClient[REST Client / JSON Serializer]
+    subgraph HW ["Hardware Layer (IoT Device)"]
+        Sensors["MQ135, MQ3, MQ7, Saliva pH, Saliva EC"] -->|Analog Voltage Signals| ADC["ESP32 ADC1 Pins"]
+        ADC -->|Quantized 12-bit Signal| Calibration["Firmware Calibration Equations"]
+        Calibration -->|PPM, pH, mS/cm Values| ESP32Core["ESP32 Microcontroller"]
+        ESP32Core -->|WiFi HTTP POST| HTTPClient["REST Client / JSON Serializer"]
     end
 
-    subgraph Communication Layer
-        HTTPClient -->|JSON Telemetry Payload| WiFi[WiFi Access Point]
-        WiFi -->|REST API Request| FlaskREST[Flask Ingestion Backend]
+    subgraph COMM ["Communication Layer"]
+        HTTPClient -->|JSON Telemetry Payload| WiFi["WiFi Access Point"]
+        WiFi -->|REST API Request| FlaskREST["Flask Ingestion Backend"]
     end
 
-    subgraph Backend Intelligence Layer (Python/Flask)
-        FlaskREST -->|Write Telemetry| DB[(SQLite Database)]
-        FlaskREST -->|Sensor + Clinical Inputs| Scaler[StandardScaler Engine]
-        Scaler -->|Normalized Feature Vector| RFClassifier[Random Forest / XGBoost Model]
-        RFClassifier -->|Risk Probabilities| PCRIEngine[PCRI Fusion Score Engine]
-        PCRIEngine -->|Screening Results| LogReport[Database Logs & Records]
-        LogReport -->|ReportLab PDF Canvas| PDFGenerator[PDF Screening Report Engine]
+    subgraph BACKEND ["Backend Intelligence Layer (Python / Flask)"]
+        FlaskREST -->|Write Telemetry| DB[("SQLite Database")]
+        FlaskREST -->|Sensor + Clinical Inputs| Scaler["StandardScaler Engine"]
+        Scaler -->|Normalized Feature Vector| RFClassifier["Random Forest / XGBoost Model"]
+        RFClassifier -->|Risk Probabilities| PCRIEngine["PCRI Fusion Score Engine"]
+        PCRIEngine -->|Screening Results| LogReport["Database Logs & Records"]
+        LogReport -->|ReportLab PDF Canvas| PDFGenerator["PDF Screening Report Engine"]
     end
 
-    subgraph Client Application Layer
-        LogReport -->|JSON API Response| FlutterApp[Flutter Mobile Application]
-        LogReport -->|Web AJAX / Fetch| WebDashboard[HTML5/JS Web Dashboard]
-        PDFGenerator -->|Stream PDF| ClientBrowser[Mobile / Web PDF Downloader]
+    subgraph CLIENT ["Client Application Layer"]
+        LogReport -->|JSON API Response| FlutterApp["Flutter Mobile Application"]
+        LogReport -->|Web AJAX / Fetch| WebDashboard["HTML5/JS Web Dashboard"]
+        PDFGenerator -->|Stream PDF| ClientBrowser["Mobile / Web PDF Downloader"]
     end
 ```
 
@@ -77,7 +77,7 @@ The backend classifier was trained and evaluated on a **1,200-sample screening c
 | 1 | **MQ3 PPM** | Breath VOC (Ethanol / Alcohols) | **17.09%** |
 | 2 | **MQ135 PPM** | Breath VOC (Air Quality / Amine) | **15.47%** |
 | 3 | **MQ7 PPM** | Breath VOC (Carbon Monoxide) | **14.94%** |
-| 4 | **Saliva Electrical Conductivity (EC)** | Salivary Biomarker ($\text{mS/cm}$) | **12.72%** |
+| 4 | **Saliva Electrical Conductivity (EC)** | Salivary Biomarker (mS/cm) | **12.72%** |
 | 5 | **Age** | Clinical Demographics | **11.44%** |
 | 6 | **Saliva pH** | Salivary Biomarker | **8.58%** |
 
@@ -103,7 +103,7 @@ The hardware prototype utilizes an **ESP32 microcontroller** operating strictly 
 | **MQ3** | Breath Alcohol Sensor | **GPIO 35 (ADC1)** | 5V VCC / 3.3V Signal | External 5V rail required (~150mA) |
 | **MQ7** | Carbon Monoxide Sensor | **GPIO 32 (ADC1)** | 5V VCC / 3.3V Signal | External 5V rail required (~150mA) |
 | **Saliva pH** | Acidity Driver Board | **GPIO 33 (ADC1)** | 5V VCC / 3.0V Signal | Calibrated via 4.01 and 7.00 buffers |
-| **Saliva EC** | Conductivity Module | **GPIO 39 (ADC1)** | 3.3V VCC / Signal | Measured in $\text{mS/cm}$ |
+| **Saliva EC** | Conductivity Module | **GPIO 39 (ADC1)** | 3.3V VCC / Signal | Measured in mS/cm |
 
 > [!WARNING]
 > **Power Supply Requirement:** Gas sensor heaters collectively consume ~450mA. Use an external 5V 2A power rail with common GND connected to the ESP32.
@@ -112,7 +112,7 @@ The hardware prototype utilizes an **ESP32 microcontroller** operating strictly 
 
 ## 📁 Repository Directory Structure
 
-```directory
+```text
 HealthCare-Ai/
 ├── backend/                        # Python Flask REST API & ML Server
 │   ├── app.py                      # Flask Application Entry Point & API Routes
