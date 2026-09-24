@@ -152,8 +152,8 @@ HealthCare-Ai/
 
 ```bash
 # Clone the repository
-git clone https://github.com/Monishwarann/HealthCare-Ai.git
-cd HealthCare-Ai/backend
+git clone https://github.com/Monishwarann/Neopanc.git
+cd Neopanc/backend
 
 # Create a virtual environment
 python -m venv venv
@@ -176,7 +176,7 @@ The server will start at `http://localhost:5000`.
 ### 2. Flutter Mobile Application Setup
 
 ```bash
-cd HealthCare-Ai/flutter_app
+cd Neopanc/flutter_app
 
 # Get dependencies
 flutter pub get
