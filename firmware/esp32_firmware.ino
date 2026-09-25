@@ -1,43 +1,44 @@
 /**
  * AI-Driven Non-Invasive Multi-Sensor Pancreatic Cancer Risk Screening System
- * ESP32 / ESP8266 Firmware (Unified Version)
+ * ESP32 / ESP8266 Firmware (Unified Version with Arduino Mega UART Integration)
  * 
- * Hardware Wiring Connections (ESP32 ADC1 Only!):
- * Sensor       | ESP32 Pin              | Notes
- * -------------|------------------------|---------------------------------------
- * MQ135 VOC    | GPIO 34                | Requires external 5V VCC, share GND
- * MQ3 Alcohol  | GPIO 35                | Requires external 5V VCC, share GND
- * MQ7 CO       | GPIO 32                | Requires external 5V VCC, share GND
- * Saliva pH    | GPIO 33                | Calibration via 4.01 and 7.00 buffers
- * Saliva EC    | GPIO 39                | Measures ionic conductance in mS/cm
+ * Hardware Wiring Connections:
+ * Arduino Mega 2560 | ESP32 Pin              | Notes
+ * ------------------|------------------------|---------------------------------------
+ * TX1 (Pin 18)      | GPIO 16 (RX2)          | Requires 5V to 3.3V Voltage Divider!
+ * RX1 (Pin 19)      | GPIO 17 (TX2)          | Optional return channel
+ * GND               | GND                    | Shared Ground MANDATORY
  * 
- * CRITICAL DESIGN NOTE:
- * ESP32 ADC2 pins are disabled when WiFi is enabled. 
- * Therefore, we MUST use ADC1 pins: GPIO 32, 33, 34, 35, 36, 39.
- * 
- * ESP8266 NOTE:
- * Automatically uses simulated sensor values since the ESP8266 has only one ADC pin (A0).
+ * Onboard ESP32 ADC Pins (Optional / Local Probes):
+ * Sensor            | ESP32 Pin              | Notes
+ * ------------------|------------------------|---------------------------------------
+ * Saliva pH         | GPIO 33                | Buffer calibration 4.01 & 7.00
+ * Saliva EC         | GPIO 39                | Ionic conductance in mS/cm
  */
 
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
   #include <ESP8266HTTPClient.h>
+  #include <ESP8266WebServer.h>
   #include <WiFiClient.h>
+  ESP8266WebServer server(80);
 #else
   #include <WiFi.h>
   #include <HTTPClient.h>
+  #include <WebServer.h>
+  WebServer server(80);
 #endif
 
-// WiFi Credentials (Merged from User Request)
+#include <ArduinoJson.h>
+
+// WiFi Credentials
 const char* ssid = "Jeeva";
 const char* password = "jeeva2006";
 
-// Server API Endpoint (Merged from User Request)
+// Server API Endpoint
 const char* serverEndpoint = "http://10.209.123.189:5000/api/telemetry";
 
 // Simulation Toggle
-// Set to 1 to simulate sensor readings (useful for testing without physical sensors)
-// Automatically enabled on ESP8266
 #ifdef ESP8266
   #define SIMULATE_SENSORS 1
 #else
@@ -45,71 +46,73 @@ const char* serverEndpoint = "http://10.209.123.189:5000/api/telemetry";
 #endif
 
 // Core Configurations
-const int USER_ID = 1;                 // Map to target patient profile
-const int SAMPLING_INTERVAL_MS = 5000;   // Ingestion rate (5 seconds)
-const int ADC_RESOLUTION = 4095;       // 12-bit ADC on ESP32
-const float ESP32_VCC = 3.3;           // Operating reference voltage
+const int USER_ID = 1;
+const int SAMPLING_INTERVAL_MS = 5000;
+const int ADC_RESOLUTION = 4095;
+const float ESP32_VCC = 3.3;
 
 #ifndef ESP8266
-// Sensor Pin Declarations (ADC1 Channels for ESP32)
+// HardwareSerial 2 Pins for Arduino Mega Communication
+#define RX2_PIN 16
+#define TX2_PIN 17
+
+// Onboard Sensor Pins (ESP32 ADC1)
 const int PIN_MQ135 = 34;
-const int PIN_MQ3 = 35;
-const int PIN_MQ7 = 32;
-const int PIN_PH = 33;
-const int PIN_EC = 39;
+const int PIN_MQ3   = 35;
+const int PIN_MQ7   = 32;
+const int PIN_PH    = 33;
+const int PIN_EC    = 39;
+#endif
 
-// MQ Sensors Calibration Parameters
-// In a production build, these are calculated by running calibration in clean air.
-float mq135_R0 = 10.0; // Calibration factor for MQ135 (Kohms)
-float mq3_R0 = 10.0;   // Calibration factor for MQ3 (Kohms)
-float mq7_R0 = 10.0;   // Calibration factor for MQ7 (Kohms)
+// Live Telemetry Data Received from Arduino Mega / Sensors
+int   mega_tds_raw = 0;
+int   mega_mq_raw  = 0;
+float mq135_ppm    = 0.0;
+float mq3_ppm      = 0.0;
+float mq7_ppm      = 0.0;
+float saliva_ph    = 7.0;
+float saliva_ec    = 3.0;
 
-// pH Sensor Parameters
-float ph_calibration_offset = 0.00; // Calculated during buffer calibration
-
-// Read Analog average helper (reduces high frequency ADC noise)
-float readAnalogAverage(int pin, int samples = 20) {
-  long sum = 0;
-  for (int i = 0; i < samples; i++) {
-    sum += analogRead(pin);
-    delay(5);
-  }
-  return (float)sum / samples;
-}
-
-// Convert MQ Sensor Analog reading to PPM estimate
-float calculateMQ_PPM(float raw_adc, float R0, float rl_val = 1.0, float clean_air_ratio = 3.6) {
-  float voltage = (raw_adc / ADC_RESOLUTION) * ESP32_VCC;
-  if (voltage >= ESP32_VCC) voltage = ESP32_VCC - 0.01; // Avoid division by zero
-  
-  // Calculate sensor resistance RS
-  float rs_gas = ((ESP32_VCC - voltage) * rl_val) / voltage;
-  
-  // Basic PPM approximation mapping: PPM = a * (RS/R0)^b
-  // Values approximated from typical MQ datasheets
-  float ratio = rs_gas / R0;
-  float ppm = 116.6 * pow(ratio, -2.76); // General VOC curve base
+// Helper: Convert Mega TDS raw reading (5V, 10-bit) to PPM
+float calculateTDS_PPM(int rawAdc) {
+  float voltage = rawAdc * (5.0 / 1023.0);
+  float ppm = (133.42 * pow(voltage, 3) - 255.86 * pow(voltage, 2) + 857.39 * voltage) * 0.5;
   return max(0.0f, ppm);
 }
 
-// Convert pH sensor reading to pH units
-float calculateSalivaPH(float raw_adc) {
-  float voltage = (raw_adc / ADC_RESOLUTION) * ESP32_VCC;
-  // Linear scale mapping for typical 0-3V pH probes
-  // Midpoint (7.0 pH) typically reads ~1.5V on calibrated modules
-  float pH = 7.0 + ((1.65 - voltage) / 0.18) + ph_calibration_offset;
-  return max(0.0f, min(14.0f, pH));
+// Helper: Convert Mega MQ raw reading to PPM
+float calculateMQ_PPM(int rawAdc) {
+  float voltage = rawAdc * (5.0 / 1023.0);
+  float ppm = voltage * 80.0; // Scaled PPM approximation
+  return max(0.0f, ppm);
 }
 
-// Convert EC sensor reading to mS/cm units
-float calculateSalivaEC(float raw_adc) {
-  float voltage = (raw_adc / ADC_RESOLUTION) * ESP32_VCC;
-  // Conductivity mapping based on typical probe characteristics
-  // Conductivity EC (mS/cm) = standard voltage coefficient
-  float ec = (voltage * 2.5); // Example calibration scaling
-  return max(0.0f, ec);
+void handleLiveEndpoint() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  StaticJsonDocument<256> doc;
+  doc["mq135_ppm"] = mq135_ppm;
+  doc["mq3_ppm"]   = mq3_ppm;
+  doc["mq7_ppm"]   = mq7_ppm;
+  doc["saliva_ph"] = saliva_ph;
+  doc["saliva_ec"] = saliva_ec;
+  doc["timestamp"] = "LIVE";
+
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
 }
-#endif
+
+void handleStatusEndpoint() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  StaticJsonDocument<128> doc;
+  doc["status"]   = "connected";
+  doc["firmware"] = "v1.0.2 (Mega-UART)";
+  doc["ip"]       = WiFi.localIP().toString();
+
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}
 
 void connectToWiFi() {
   Serial.print("Connecting to WiFi network: ");
@@ -119,17 +122,17 @@ void connectToWiFi() {
   
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(1000);
+    delay(500);
     Serial.print(".");
     attempts++;
   }
   
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi Connected successfully!");
-    Serial.print("IP Address: ");
+    Serial.print("ESP32 IP Address: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\nWiFi connection failed! Continuing offline mode...");
+    Serial.println("\nWiFi connection failed! Offline mode active.");
   }
 }
 
@@ -138,114 +141,106 @@ void setup() {
   delay(1000);
   
   #ifndef ESP8266
-    // Configure input resolution (ESP32 specific)
-    analogReadResolution(12); // 0 to 4095 range
-    
-    // Initialize Pins
-    pinMode(PIN_MQ135, INPUT);
-    pinMode(PIN_MQ3, INPUT);
-    pinMode(PIN_MQ7, INPUT);
+    // Initialize HardwareSerial 2 to receive data from Arduino Mega 2560 (Serial1)
+    Serial2.begin(9600, SERIAL_8N1, RX2_PIN, TX2_PIN);
+    Serial.println("Serial2 initialized (RX2=GPIO16, TX2=GPIO17) at 9600 baud.");
+
+    analogReadResolution(12);
     pinMode(PIN_PH, INPUT);
     pinMode(PIN_EC, INPUT);
-    
-    randomSeed(analogRead(34)); // Seed using one of the ADC1 pins
-  #else
-    randomSeed(analogRead(A0));
   #endif
   
   connectToWiFi();
-  Serial.println("System Initialized. Starting sensor telemetry loop...");
+
+  // Register WebServer Endpoints for Flutter App Direct Polling
+  server.on("/live", handleLiveEndpoint);
+  server.on("/api/status", handleStatusEndpoint);
+  server.begin();
+  Serial.println("ESP32 Local HTTP WebServer started on port 80.");
 }
+
+unsigned long lastPostTime = 0;
 
 void loop() {
-  float mq135_ppm = 0.0;
-  float mq3_ppm = 0.0;
-  float mq7_ppm = 0.0;
-  float saliva_ph = 7.0;
-  float saliva_ec = 3.0;
+  // Handle incoming HTTP requests from Flutter App
+  server.handleClient();
+
+  #ifndef ESP8266
+  // 1. Check for incoming Serial data from Arduino Mega 2560
+  if (Serial2.available() > 0) {
+    String payload = Serial2.readStringUntil('\n');
+    payload.trim();
+
+    // Parse packet formatted as: "TDS=xxx,MQ=yyy"
+    int tdsIdx = payload.indexOf("TDS=");
+    int mqIdx  = payload.indexOf(",MQ=");
+
+    if (tdsIdx != -1 && mqIdx != -1) {
+      mega_tds_raw = payload.substring(tdsIdx + 4, mqIdx).toInt();
+      mega_mq_raw  = payload.substring(mqIdx + 4).toInt();
+
+      // Convert Mega raw readings
+      mq135_ppm = calculateMQ_PPM(mega_mq_raw);
+      float tdsPpm = calculateTDS_PPM(mega_tds_raw);
+      saliva_ec = tdsPpm / 500.0; // Standard conversion EC (mS/cm) from TDS (PPM)
+
+      Serial.printf("[Mega UART] TDS Raw: %d (EC: %.2f mS/cm) | MQ Raw: %d (VOC: %.2f PPM)\n",
+                    mega_tds_raw, saliva_ec, mega_mq_raw, mq135_ppm);
+    }
+  }
+  #endif
 
   #if SIMULATE_SENSORS
-    // Sample/Mock Sensor Values (Merged from user ranges)
-    mq135_ppm = random(200, 400) / 10.0;       // Equivalent to random(20, 40)
-    mq3_ppm = random(80, 150) / 10.0;          // Equivalent to random(8, 15)
-    mq7_ppm = random(20, 80) / 10.0;           // Equivalent to random(2, 8)
-    saliva_ph = 6.5 + (random(0, 50) / 100.0);  // Equivalent to 6.5 + random(0, 50) / 100.0
-    saliva_ec = 1.5 + (random(0, 100) / 100.0); // Equivalent to 1.5 + random(0, 100) / 100.0
-  #else
-    // 1. Gather filtered readings from physical ESP32 hardware
-    float raw_mq135 = readAnalogAverage(PIN_MQ135);
-    float raw_mq3   = readAnalogAverage(PIN_MQ3);
-    float raw_mq7   = readAnalogAverage(PIN_MQ7);
-    float raw_ph    = readAnalogAverage(PIN_PH);
-    float raw_ec    = readAnalogAverage(PIN_EC);
-    
-    // 2. Perform sensor calibrations and conversions
-    mq135_ppm = calculateMQ_PPM(raw_mq135, mq135_R0);
-    mq3_ppm   = calculateMQ_PPM(raw_mq3, mq3_R0);
-    mq7_ppm   = calculateMQ_PPM(raw_mq7, mq7_R0);
-    saliva_ph = calculateSalivaPH(raw_ph);
-    saliva_ec = calculateSalivaEC(raw_ec);
+    mq135_ppm = random(200, 400) / 10.0;
+    mq3_ppm   = random(80, 150) / 10.0;
+    mq7_ppm   = random(20, 80) / 10.0;
+    saliva_ph = 6.5 + (random(0, 50) / 100.0);
+    saliva_ec = 1.5 + (random(0, 100) / 100.0);
   #endif
-  
-  // Print values locally to serial console
-  Serial.println("\n--- Telemetry Metrics ---");
-  Serial.printf("MQ135 (VOC): %.2f PPM\n", mq135_ppm);
-  Serial.printf("MQ3 (Alcohol): %.2f PPM\n", mq3_ppm);
-  Serial.printf("MQ7 (CO): %.2f PPM\n", mq7_ppm);
-  Serial.printf("Saliva pH: %.2f pH\n", saliva_ph);
-  Serial.printf("Saliva EC: %.2f mS/cm\n", saliva_ec);
-  
-  // 3. Send data to Flask API if WiFi is active
-  if (WiFi.status() == WL_CONNECTED) {
-    #ifdef ESP8266
-      WiFiClient client;
-      HTTPClient http;
-      http.setTimeout(10000);
-      bool beginSuccess = http.begin(client, serverEndpoint);
-    #else
-      HTTPClient http;
-      http.setTimeout(10000);
-      bool beginSuccess = http.begin(serverEndpoint);
-    #endif
 
-    if (beginSuccess) {
-      http.addHeader("Content-Type", "application/json");
-      
-      // Construct JSON payload matching the Flask API schema
-      String payload = "{";
-      payload += "\"user_id\":\"" + String(USER_ID) + "\","; // Send user_id as required by the backend
-      payload += "\"mq135_ppm\":" + String(mq135_ppm, 2) + ",";
-      payload += "\"mq3_ppm\":" + String(mq3_ppm, 2) + ",";
-      payload += "\"mq7_ppm\":" + String(mq7_ppm, 2) + ",";
-      payload += "\"saliva_ph\":" + String(saliva_ph, 2) + ",";
-      payload += "\"saliva_ec\":" + String(saliva_ec, 2);
-      payload += "}";
-      
-      Serial.println("Transmitting payload to API endpoint...");
-      Serial.println(payload);
-      
-      int httpResponseCode = http.POST(payload);
-      
-      Serial.print("Server HTTP Code: ");
-      Serial.println(httpResponseCode);
-      
-      if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.print("Response: ");
-        Serial.println(response);
-      } else {
-        Serial.print("HTTP Error: ");
-        Serial.println(http.errorToString(httpResponseCode));
+  // 2. Periodically transmit telemetry payload to Flask Backend
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastPostTime >= SAMPLING_INTERVAL_MS) {
+    lastPostTime = currentMillis;
+
+    Serial.println("\n--- Current Sensor Metrics ---");
+    Serial.printf("MQ135 (VOC): %.2f PPM\n", mq135_ppm);
+    Serial.printf("Saliva pH: %.2f pH\n", saliva_ph);
+    Serial.printf("Saliva EC: %.2f mS/cm (From Mega TDS Raw %d)\n", saliva_ec, mega_tds_raw);
+
+    if (WiFi.status() == WL_CONNECTED) {
+      #ifdef ESP8266
+        WiFiClient client;
+        HTTPClient http;
+        http.setTimeout(5000);
+        bool beginSuccess = http.begin(client, serverEndpoint);
+      #else
+        HTTPClient http;
+        http.setTimeout(5000);
+        bool beginSuccess = http.begin(serverEndpoint);
+      #endif
+
+      if (beginSuccess) {
+        http.addHeader("Content-Type", "application/json");
+
+        String payload = "{";
+        payload += "\"user_id\":\"" + String(USER_ID) + "\",";
+        payload += "\"mq135_ppm\":" + String(mq135_ppm, 2) + ",";
+        payload += "\"mq3_ppm\":" + String(mq3_ppm, 2) + ",";
+        payload += "\"mq7_ppm\":" + String(mq7_ppm, 2) + ",";
+        payload += "\"saliva_ph\":" + String(saliva_ph, 2) + ",";
+        payload += "\"saliva_ec\":" + String(saliva_ec, 2);
+        payload += "}";
+
+        Serial.println("Transmitting telemetry to Flask API backend...");
+        int httpResponseCode = http.POST(payload);
+        Serial.printf("Server HTTP Response Code: %d\n", httpResponseCode);
+        http.end();
       }
-      http.end();
     } else {
-      Serial.println("Unable to connect to server endpoint");
+      Serial.println("Offline: WiFi connection unavailable. Retrying...");
+      connectToWiFi();
     }
-  } else {
-    Serial.println("System offline: WiFi connection unavailable. Telemetry outputted to Serial only.");
-    // Reconnect check
-    connectToWiFi();
   }
-  
-  delay(SAMPLING_INTERVAL_MS);
 }
+

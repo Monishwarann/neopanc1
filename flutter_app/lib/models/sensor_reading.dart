@@ -16,13 +16,25 @@ class SensorReading {
   });
 
   factory SensorReading.fromJson(Map<String, dynamic> json) {
+    DateTime parsedTime;
+    try {
+      final rawTs = json['timestamp'];
+      if (rawTs != null && rawTs is String && rawTs != 'LIVE') {
+        parsedTime = DateTime.parse(rawTs);
+      } else {
+        parsedTime = DateTime.now();
+      }
+    } catch (_) {
+      parsedTime = DateTime.now();
+    }
+
     return SensorReading(
-      mq135Ppm: (json['mq135_ppm'] as num).toDouble(),
-      mq3Ppm: (json['mq3_ppm'] as num).toDouble(),
-      mq7Ppm: (json['mq7_ppm'] as num).toDouble(),
-      salivaPh: (json['saliva_ph'] as num).toDouble(),
-      salivaEc: (json['saliva_ec'] as num).toDouble(),
-      timestamp: DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
+      mq135Ppm: (json['mq135_ppm'] as num?)?.toDouble() ?? 0.0,
+      mq3Ppm: (json['mq3_ppm'] as num?)?.toDouble() ?? 0.0,
+      mq7Ppm: (json['mq7_ppm'] as num?)?.toDouble() ?? 0.0,
+      salivaPh: (json['saliva_ph'] as num?)?.toDouble() ?? 7.0,
+      salivaEc: (json['saliva_ec'] as num?)?.toDouble() ?? 3.0,
+      timestamp: parsedTime,
     );
   }
 

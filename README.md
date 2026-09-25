@@ -1,4 +1,4 @@
-# NeoPanc-Ai 🩺 Volatile Organic Compound (VOC) & Salivary Biomarker Risk Screening System
+# HealthCare-Ai 🩺 Volatile Organic Compound (VOC) & Salivary Biomarker Risk Screening System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](backend/)
@@ -7,7 +7,7 @@
 [![AI Model](https://img.shields.io/badge/ML%20Model-Random%20Forest%20%2F%20XGBoost-success.svg)](backend/models/)
 [![Accuracy](https://img.shields.io/badge/Model%20Accuracy-84.17%25-brightgreen.svg)](docs/final_report.md)
 
-**NeoPanc-Ai** (also known as *NeoPanc*) is an end-to-end, non-invasive, AI-driven IoT risk screening platform for early pancreatic cancer indicators. By fusing exhaled breath volatile organic compounds (VOCs) and salivary biomarkers (pH and electrical conductivity) with clinical survey parameters, the system computes a continuous **Pancreatic Cancer Risk Index (PCRI)** score (0–100) and provides actionable risk-stratified clinical recommendations.
+**HealthCare-Ai** (also known as *NeoPanc*) is an end-to-end, non-invasive, AI-driven IoT risk screening platform for early pancreatic cancer indicators. By fusing exhaled breath volatile organic compounds (VOCs) and salivary biomarkers (pH and electrical conductivity) with clinical survey parameters, the system computes a continuous **Pancreatic Cancer Risk Index (PCRI)** score (0–100) and provides actionable risk-stratified clinical recommendations.
 
 ---
 
@@ -15,7 +15,7 @@
 
 Pancreatic ductal adenocarcinoma (PDAC) has one of the lowest 5-year survival rates (~11%) among all cancers, largely due to late-stage diagnosis. Early symptoms are non-specific, and initial diagnostics currently rely on costly imaging (CT, MRI, EUS) or invasive biopsies. 
 
-**NeoPanc-Ai** addresses this challenge by providing a **low-cost, portable, non-invasive primary risk screening tool** suitable for point-of-care environments and preliminary clinical evaluations.
+**HealthCare-Ai** addresses this challenge by providing a **low-cost, portable, non-invasive primary risk screening tool** suitable for point-of-care environments and preliminary clinical evaluations.
 
 ### Key Biomarker Channels
 1. **Breath Volatile Organic Compounds (VOCs):** Exhaled breath metabolic markers including acetone, ethanol, acetaldehyde, and amine derivatives measured via gas sensors (`MQ135`, `MQ3`, `MQ7`).
@@ -152,8 +152,8 @@ HealthCare-Ai/
 
 ```bash
 # Clone the repository
-git clone https://github.com/Monishwarann/Neopanc.git
-cd Neopanc/backend
+git clone https://github.com/Monishwarann/HealthCare-Ai.git
+cd HealthCare-Ai/backend
 
 # Create a virtual environment
 python -m venv venv
@@ -176,7 +176,7 @@ The server will start at `http://localhost:5000`.
 ### 2. Flutter Mobile Application Setup
 
 ```bash
-cd Neopanc/flutter_app
+cd HealthCare-Ai/flutter_app
 
 # Get dependencies
 flutter pub get
@@ -219,10 +219,10 @@ This repository is licensed under the [MIT License](LICENSE).
 If you use this work, firmware code, or biomarker dataset in your research or project, please cite:
 
 ```bibtex
-@article{neopanc_ai_2026,
+@article{health_care_ai_2026,
   title={AI-Driven Non-Invasive Multi-Sensor IoT-Based Early Pancreatic Cancer Risk Screening System Using Breath and Saliva Biomarkers},
   author={Monishwaran K. et al.},
-  journal={IEEE Research Documentation / NeoPanc-Ai Technical Specifications},
+  journal={IEEE Research Documentation / HealthCare-Ai Technical Specifications},
   year={2026}
 }
 ```
